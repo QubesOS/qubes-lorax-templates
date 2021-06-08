@@ -12,7 +12,12 @@ installpkg rpm-ostree ostree
 installpkg pigz
 
 ## kernel and firmware
+%if use_kernel_latest == "1":
+installpkg kernel-latest
+%endif
+%if use_kernel_latest != "1":
 installpkg kernel
+%endif
 installpkg grubby
 %if basearch != "s390x":
     installpkg linux-firmware
