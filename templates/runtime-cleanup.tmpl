@@ -66,7 +66,8 @@ removepkg libmcpp libtiff linux-atm-libs
 removepkg lvm2-libs m4 mailx makebootfat mcpp
 removepkg mingetty mobile-broadband-provider-info pkgconfig ppp pth
 removepkg rmt rpcbind squashfs-tools system-config-firewall-base
-removepkg tigervnc-license ttmkfdir xml-common xorg-x11-font-utils
+removepkg tigervnc-license ttmkfdir xml-common
+removepkg xorg-x11-font-utils bdftopcf mkfontscale fonttosfnt
 removepkg xorg-x11-server-common yum-utils firewalld
 
 ## remove stuff depending on perl
@@ -188,7 +189,6 @@ removefrom gawk /usr/bin/{igawk,pgawk} /usr/libexec/* /usr/share/*
 removefrom gdb /usr/share/* /usr/include/* /etc/gdbinit*
 removefrom gdisk /usr/share/*
 removefrom gdk-pixbuf2 /usr/share/locale*
-removefrom gfs2-utils /usr/sbin/*
 removefrom glib2 /etc/* /usr/bin/* /usr/share/locale/*
 removefrom glibc /etc/gai.conf /etc/localtime /etc/rpc
 removefrom glibc /lib/*/nosegneg/* /${libdir}/libBrokenLocale*
@@ -281,7 +281,7 @@ removefrom nfs-utils /usr/sbin/showmount /usr/sbin/sm-notify
 removefrom nfs-utils /usr/sbin/start-statd /var/lib/nfs/etab
 removefrom nfs-utils /var/lib/nfs/rmtab /var/lib/nfs/state /var/lib/nfs/xtab
 removefrom nss-softokn /usr/${libdir}/nss/*
-removefrom openldap /etc/openldap/* /usr/${libdir}/libldap_r-*
+removefrom openldap /etc/openldap/*
 removefrom openssh /usr/libexec/*
 removefrom openssh-clients /etc/ssh/* /usr/bin/ssh-*
 removefrom openssh-clients /usr/libexec/*
@@ -326,7 +326,6 @@ removefrom xorg-x11-drv-openchrome /usr/${libdir}/libchrome*
 removefrom xorg-x11-drv-synaptics /usr/bin/*
 removefrom xorg-x11-drv-wacom /usr/bin/*
 removefrom xorg-x11-fonts-misc --allbut /usr/share/X11/fonts/misc/{6x13,encodings,fonts,*cursor}*
-removefrom xorg-x11-server-utils --allbut /usr/bin/xrandr /usr/share/X11/rgb.txt /usr/bin/xrdb
 removefrom yum /etc/* /usr/share/locale/* /usr/share/yum-cli/*
 removefrom ${product.name}-logos /etc/*
 removefrom ${product.name}-logos /usr/share/icons/{Bluecurve,oxygen}/*
