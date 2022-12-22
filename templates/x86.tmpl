@@ -39,14 +39,12 @@ mkdir ${KERNELDIR}
 install boot/xen*gz ${KERNELDIR}/xen.gz
 <%
 sortedkernels = sorted(kernels, key=lambda k: LooseVersion(k['version']))
+assert(len(sortedkernels) <= 2)
+# choose oldest - the LTS one
+defaultkernel = sortedkernels[0]
 latestkernel = sortedkernels[-1]
 shortkvers = []
 %>
-
-mkdir ${EXTRAKERNELS}
-# bypass "chroot" enforced by Lorax parser
--install ../../../../yum/dom0-updates/rpm/kernel-qubes-vm-[0-9]*rpm ${EXTRAKERNELS}
--remove ${EXTRAKERNELS}/kernel-qubes-vm-${latestkernel.version}.rpm
 
 %for kernel in sortedkernels:
     # Use short kernel version because of ISO9660 filename length limitation
@@ -54,19 +52,23 @@ mkdir ${EXTRAKERNELS}
     shortkver = kernel.version.replace('.pvops.qubes','').replace('.x86_64','')
     shortkvers.append(shortkver)
     %>
-    %if kernel.flavor:
-        ## i386 PAE
-        installkernel images-xen ${kernel.path} ${KERNELDIR}/vmlinuz-${kernel.flavor}
-        installinitrd images-xen ${kernel.initrd.path} ${KERNELDIR}/initrd-${kernel.flavor}.img
-    %else:
-        ## normal i386, x86_64
+    %if kernel == defaultkernel:
         installkernel images-${basearch} ${kernel.path} ${KERNELDIR}/vmlinuz
         installinitrd images-${basearch} ${kernel.initrd.path} ${KERNELDIR}/initrd.img
+    %else:
+        installkernel images-xen ${kernel.path} ${KERNELDIR}/vmlinuz-${shortkver}
+        installinitrd images-xen ${kernel.initrd.path} ${KERNELDIR}/initrd-${shortkver}.img
+        hardlink ${KERNELDIR}/vmlinuz-${shortkver} ${BOOTDIR}
+        hardlink ${KERNELDIR}/initrd-${shortkver}.img ${BOOTDIR}
+        hardlink ${KERNELDIR}/vmlinuz-${shortkver} ${KERNELDIR}/vmlinuz-latest
+        hardlink ${KERNELDIR}/initrd-${shortkver}.img ${BOOTDIR}/initrd-latest.img
+        replace '@EXTRAKERNELS@' 'label kernel-${kernel.version}\n\
+  menu indent count 5\n\
+  menu label ^Install @PRODUCT@ using ${kernel.version} kernel\n\
+  kernel mboot.c32\n\
+  append xen.gz --- vmlinuz-${shortkver} @ROOT@ quiet --- initrd-${shortkver}.img\n\
+@EXTRAKERNELS@' ${BOOTDIR}/isolinux.cfg
     %endif
-    installkernel images-alt-${shortkver} ${kernel.path} ${BOOTDIR}/vmlinuz-${shortkver}
-    installinitrd images-alt-${shortkver} ${kernel.initrd.path} ${BOOTDIR}/initrd-${shortkver}.img
-
-  <% latestkver = kernel.version %>
 
 %endfor
 
@@ -97,7 +99,7 @@ hardlink ${KERNELDIR}/initrd.img ${BOOTDIR}
         efigraft += " {0}={1}/{0}".format(img,outroot)
     efihybrid = "--uefi"
     %>
-    <%include file="efi.tmpl" args="configdir=configdir, KERNELDIR=KERNELDIR, efiarch=efiarch, isolabel=isolabel, kver=latestkver"/>
+    <%include file="efi.tmpl" args="configdir=configdir, KERNELDIR=KERNELDIR, efiarch=efiarch, isolabel=isolabel, kver=defaultkernel.version, shortkvers=shortkvers"/>
 %endif
 
 # Support for productmd format

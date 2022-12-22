@@ -1,4 +1,4 @@
-<%page args="configdir, KERNELDIR, efiarch, isolabel, kver"/>
+<%page args="configdir, KERNELDIR, efiarch, isolabel, kver, shortkvers"/>
 <%
 EFIARCH_LOWER=efiarch.lower()
 EFIBOOTDIR="EFI/BOOT"
@@ -72,6 +72,14 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
         install boot/efi/EFI/qubes/initrd-small.img ${EFIBOOTDIR}/initrd.img
     %endif
     install ${configdir}/grub2-efi.cfg ${eficonf}
+    %for shortkver in shortkvers[1:]:
+        install ${configdir}/grub2-efi-entry.cfg ${eficonf}-entry
+        replace @KVER@ ${shortkver} ${eficonf}-entry
+        replace @KERNELPATH@ /${kdir}/vmlinuz-${shortkver} ${eficonf}-entry
+        replace @INITRDPATH@ /${kdir}/initrd-${shortkver}.img ${eficonf}-entry
+        runcmd sh -c 'cat ${outroot}/${eficonf}-entry >> ${outroot}/${eficonf}'
+        remove ${eficonf}-entry
+    %endfor
     replace @PRODUCT@ '${product.name}' ${eficonf}
     replace @VERSION@ ${product.version} ${eficonf}
     replace @KERNELNAME@ vmlinuz ${eficonf}
