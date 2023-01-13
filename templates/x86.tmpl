@@ -61,7 +61,7 @@ shortkvers = []
         hardlink ${KERNELDIR}/vmlinuz-${shortkver} ${BOOTDIR}
         hardlink ${KERNELDIR}/initrd-${shortkver}.img ${BOOTDIR}
         hardlink ${KERNELDIR}/vmlinuz-${shortkver} ${KERNELDIR}/vmlinuz-latest
-        hardlink ${KERNELDIR}/initrd-${shortkver}.img ${BOOTDIR}/initrd-latest.img
+        hardlink ${KERNELDIR}/initrd-${shortkver}.img ${KERNELDIR}/initrd-latest.img
         replace '@EXTRAKERNELS@' 'label kernel-${kernel.version}\n\
   menu indent count 5\n\
   menu label ^Install @PRODUCT@ using ${kernel.version} kernel\n\
