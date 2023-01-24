@@ -1,6 +1,5 @@
 <%page args="configdir, KERNELDIR, efiarch, isolabel, kver, shortkvers"/>
 <%
-EFIARCH_LOWER=efiarch.lower()
 EFIBOOTDIR="EFI/BOOT"
 APPLE_EFI_ICON=inroot+"/usr/share/pixmaps/bootloader/fedora.icns"
 APPLE_EFI_DISKNAME=inroot+"/usr/share/pixmaps/bootloader/fedora-media.vol"
@@ -8,6 +7,7 @@ APPLE_EFI_DISKNAME=inroot+"/usr/share/pixmaps/bootloader/fedora-media.vol"
 
 mkdir ${EFIBOOTDIR}
 mkdir ${EFIBOOTDIR}/fonts/
+## BEGIN QUBES SPECIFIC PART
 ## Install grub only (no shim), as we don't have SecureBoot-signed xen/kernel
 ## Create custom grub image, to include multiboot2 module
 <%
@@ -32,12 +32,11 @@ runcmd chroot ${inroot} grub2-mkimage -O x86_64-efi \
     -o /boot/efi/EFI/qubes/BOOT${efiarch}.EFI \
     -p /EFI/BOOT ${grub_modules}
 install boot/efi/EFI/qubes/BOOT${efiarch}.EFI ${EFIBOOTDIR}/BOOT${efiarch}.EFI
+## END QUBES SPECIFIC PART
+install usr/share/grub/unicode.pf2 ${EFIBOOTDIR}/fonts/
 
 ## actually make the EFI images
 ${make_efiboot("images/efiboot.img", include_kernel=False)}
-
-## place fonts on ISO9660, but not in efiboot.img to save space
-install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
 
 ## This is kinda gross, but then... so's EFI.
 <%def name="make_efiboot(img, include_kernel=False, disk=False, imgtype='default')">
@@ -45,6 +44,7 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
     kdir = EFIBOOTDIR if include_kernel else KERNELDIR
     eficonf = "%s/grub.cfg" % (EFIBOOTDIR, )
     args = "--label=ANACONDA --debug"
+## BEGIN QUBES SPECIFIC PART
     scsi_modules   = " 3w-9xxx 3w-sas 3w-xxxx BusLogic a100u2w aacraid advansys aic79xx aic7xxx am53c974 arcmsr atp870u bfa bnx2fc csiostor dc395x dmx3191d esas2r esp_scsi fcoe fnic gdth hpsa hptiop hv_storvsc initio ipr ips isci iscsi_boot_sysfs libfc libfcoe libiscsi libosd libsas lpfc megaraid megaraid_mbox megaraid_mm megaraid_sas mpt2sas mpt3sas mvsas mvumi osd pm80xx pmcraid qla1280 qla2xxx qla4xxx raid_class scsi_debug scsi_dh_emc scsi_dh_rdac scsi_transport_fc scsi_transport_iscsi scsi_transport_sas scsi_transport_spi scsi_transport_srp stex sym53c8xx ufshcd virtio_scsi vmw_pvscsi wd719x"
     extra_modules  = " affs befs coda cuse dlm gfs2 mptfc ncpfs nilfs2 ocfs2 ocfs2_dlm ocfs2_dlmfs ocfs2_nodemanager ocfs2_stack_o2cb ocfs2_stack_user ocfs2_stackglue sctp sysv ubifs ufs"
     extra_modules += " 9p cachefiles ceph cramfs fscache minix blocklayoutdriver grace nfs nfsv4 objlayoutdriver romfs btrfs xfs cifs drbd sunrpc sctp mwifiex f2fs reiserfs jfs"
@@ -53,13 +53,14 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
     extra_modules += " \\<hfs\\> hfsplus"
     extra_modules += " ib_addr ib_cm ib_core ib_mad ib_sa ib_ucm ib_umad ib_uverbs iw_cm rdma_cm rdma_ucm iw_cxgb3 iw_cxgb4 mlx4_ib ib_mthca iw_nes ib_qib ib_ipoib ib_iser ib_isert ib_srp ib_srpt"
     extra_modules += " cxgb3 cxgb4 mlx4_core mlx4_en"
-    extra_dracut_modules  = " multipath modsign crypt shutdown plymouth fcoe fcoe-uefi nfs iscsi ifcfg"
+    extra_dracut_modules = " multipath modsign crypt shutdown plymouth fcoe fcoe-uefi nfs iscsi"
     extra_dracut_modules += " btrfs lvm qemu qemu-net systemd-bootchart systemd-networkd virtfs mlx4 rdma cifs livenet network kernel-network-modules"
+## END QUBES SPECIFIC PART
     if disk: args += " --disk"
-    if imgtype == "apple": args += ' --apple --icon=%s --diskname=%s --product="%s %s"' % (APPLE_EFI_ICON, APPLE_EFI_DISKNAME, product.name, product.version)
     %>
     %if include_kernel:
         copy ${KERNELDIR}/vmlinuz ${EFIBOOTDIR}
+## BEGIN QUBES SPECIFIC PART
         runcmd chroot ${inroot} mkdir -p /boot/efi/EFI/qubes
         runcmd chroot ${inroot} touch /proc/modules
         runcmd chroot ${inroot} dracut --conf /dev/null --confdir /var/empty \
@@ -70,8 +71,10 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
           /boot/efi/EFI/qubes/initrd-small.img ${kver}
         runcmd chroot ${inroot} rm -f /proc/modules
         install boot/efi/EFI/qubes/initrd-small.img ${EFIBOOTDIR}/initrd.img
+## END QUBES SPECIFIC PART
     %endif
     install ${configdir}/grub2-efi.cfg ${eficonf}
+## BEGIN QUBES SPECIFIC PART
     %for shortkver in shortkvers[1:]:
         install ${configdir}/grub2-efi-entry.cfg ${eficonf}-entry
         replace @KVER@ ${shortkver} ${eficonf}-entry
@@ -80,10 +83,13 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
         runcmd sh -c 'cat ${outroot}/${eficonf}-entry >> ${outroot}/${eficonf}'
         remove ${eficonf}-entry
     %endfor
+## END QUBES SPECIFIC PART
     replace @PRODUCT@ '${product.name}' ${eficonf}
     replace @VERSION@ ${product.version} ${eficonf}
     replace @KERNELNAME@ vmlinuz ${eficonf}
+## BEGIN QUBES SPECIFIC PART
     replace @XENPATH@ /${kdir}/xen.gz ${eficonf}
+## END QUBES SPECIFIC PART
     replace @KERNELPATH@ /${kdir}/vmlinuz ${eficonf}
     replace @INITRDPATH@ /${kdir}/initrd.img ${eficonf}
     replace @ISOLABEL@ '${isolabel}' ${eficonf}
@@ -92,14 +98,12 @@ install boot/efi/EFI/*/fonts/unicode.pf2 ${EFIBOOTDIR}/fonts/
     %else:
         replace @ROOT@ 'inst.stage2=hd:LABEL=${isolabel|udev}' ${eficonf}
     %endif
+    %if efiarch32 == 'IA32':
+        copy ${eficonf} ${EFIBOOTDIR}/BOOT.conf
+    %endif
     runcmd mkefiboot ${args} ${outroot}/${EFIBOOTDIR} ${outroot}/${img}
-    # place those files to prevent Windows recreating them while writing ISO image
-    # on Windows (this would break image verification)
-    runcmd mount ${outroot}/${img} ${outroot}/${EFIBOOTDIR} -o loop
-    mkdir "${EFIBOOTDIR}/System Volume Information"
-    install "${configdir}/System Volume Information/*" "${EFIBOOTDIR}/System Volume Information/"
-    runcmd umount ${outroot}/${img}
-    # verify if the image is under 32MB (max size of boot image on iso9660)
-    runcmd sh -x -c '[ $(stat -c %s ${outroot}/${img}) -le 33554432 ]'
-
+    %if include_kernel:
+        remove ${EFIBOOTDIR}/vmlinuz
+        remove ${EFIBOOTDIR}/initrd.img
+    %endif
 </%def>

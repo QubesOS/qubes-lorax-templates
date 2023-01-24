@@ -3,17 +3,13 @@
 
 <%page args="root, basearch, libdir, configdir"/>
 <%
-stubs = ("list-harddrives", "raidstart", "raidstop")
 configdir = configdir + "/common"
 import os, time
 SOURCE_DATE_EPOCH = os.environ.get('SOURCE_DATE_EPOCH', str(int(time.time())))
 %>
 
 ## move_stubs()
-move usr/share/anaconda/restart-anaconda usr/bin
-%for stub in stubs:
-    -move usr/share/anaconda/${stub}-stub usr/bin/${stub}
-%endfor
+move usr/share/anaconda/list-harddrives-stub usr/bin/list-harddrives
 
 ## move_repos()
 move etc/yum.repos.d etc/anaconda.repos.d
@@ -30,19 +26,13 @@ symlink /lib/systemd/system/anaconda.target etc/systemd/system/default.target
 mkdir etc/systemd/system/local-fs.target.wants/
 symlink /lib/systemd/system/tmp.mount etc/systemd/system/local-fs.target.wants/tmp.mount
 
-## Start rngd
-mkdir etc/systemd/system/basic.target.wants/
-symlink /lib/systemd/system/rngd.service etc/systemd/system/basic.target.wants/rngd.service
-
 ## Disable unwanted systemd services
 systemctl disable systemd-readahead-collect.service \
                   systemd-readahead-replay.service \
-                  mdmonitor.service \
-                  mdmonitor-takeover.service \
                   lvm2-monitor.service \
                   dnf-makecache.timer \
-                  sshd.service \
                   sshd.socket \
+                  sshd.service \
                   NetworkManager.service
 ## These services can't be disabled normally (they're linked into place in
 ## /usr/lib/systemd rather than /etc/systemd), so we have to mask them.
@@ -51,6 +41,7 @@ systemctl mask fedora-configure.service fedora-loadmodules.service \
                fedora-wait-storage.service media.mount \
                systemd-tmpfiles-clean.service systemd-tmpfiles-clean.timer \
                ldconfig.service
+remove usr/lib/systemd/system/rngd.service
 
 ## remove because it cannot be disabled
 remove usr/lib/systemd/system-generators/lvm2-activation-generator
@@ -69,7 +60,6 @@ replace "#ReserveVT=6" "ReserveVT=2" etc/systemd/logind.conf
 remove var/log/journal
 
 ## install some basic configuration files
-append etc/resolv.conf ""
 append etc/fstab ""
 install ${configdir}/i18n etc/sysconfig
 install ${configdir}/rsyslog.conf etc
@@ -83,14 +73,21 @@ install ${configdir}/91-anaconda-autoconnect-slaves.conf etc/NetworkManager/conf
 install ${configdir}/vconsole.conf etc
 install ${configdir}/92-anaconda-loglevel-debug.conf etc/NetworkManager/conf.d
 
+## BEGIN QUBES SPECIFIC PART
 ## disable NetworkManager
-install ${configdir}/NetworkManager.state var/lib/NetworkManager/NetworkManager.state
+install ${configdir}/NetworkManager.state var/lib/NetworkManager/NetworkManager.stat
 
 ## set up sshd
-install ${configdir}/sshd_config.anaconda etc/ssh
-install ${configdir}/pam.sshd etc/pam.d/sshd
-install ${configdir}/pam.sshd etc/pam.d/login
-install ${configdir}/pam.sshd etc/pam.d/remote
+##install ${configdir}/sshd_config.anaconda etc/ssh
+##install ${configdir}/pam.sshd etc/pam.d/sshd
+##install ${configdir}/pam.sshd etc/pam.d/login
+##install ${configdir}/pam.sshd etc/pam.d/remote
+## END QUBES SPECIFIC PART
+
+## set up inst.rngd support
+install ${configdir}/inst.rngd.service etc/systemd/system/inst.rngd.service
+mkdir etc/systemd/system/basic.target.wants/
+symlink /etc/systemd/system/inst.rngd.service etc/systemd/system/basic.target.wants/inst.rngd.service
 
 ## set up "install" user account
 append etc/passwd "install:x:0:0:root:/root:/usr/libexec/anaconda/run-anaconda"
@@ -102,7 +99,6 @@ replace "root:\*:" "root::" etc/shadow
 install ${configdir}/org.gtk.Settings.Debug.gschema.override usr/share/glib-2.0/schemas
 runcmd chroot ${root} glib-compile-schemas /usr/share/glib-2.0/schemas
 
-move usr/libexec/anaconda/auditd sbin
 
 ## for compatibility with Ancient Anaconda Traditions
 symlink lib/modules /modules
@@ -113,13 +109,8 @@ symlink ../run/install mnt/install
 append etc/depmod.d/dd.conf "search updates built-in"
 
 ## create multipath.conf so multipath gets auto-started
-append etc/multipath.conf "defaults {\n\tfind_multipaths yes\n\tuser_friendly_names yes\n}\n"
-
-## include additional modules in initramfs
-append etc/dracut.conf.d/extra-install-modules.conf "add_drivers+=' ehci-pci xhci-hcd xhci-pci '"
-
-## no longer hard dependencies of anaconda module (for smaller EFI initrd), so add them here
-append etc/dracut.conf.d/extra-install-modules.conf "add_dracutmodules+=' livenet nfs img-lib convertfs ifcfg '"
+append etc/multipath.conf "defaults {\n\tfind_multipaths smart\n\tuser_friendly_names yes\n}\n"
+append etc/multipath.conf "blacklist_exceptions {\n\tproperty \"(SCSI_IDENT_|ID_WWN)\"\n}\n"
 
 ## make lvm auto-activate
 remove etc/lvm/archive/*
@@ -131,10 +122,9 @@ remove etc/lvm/cache
 remove etc/lvm/lvm.conf
 append etc/lvm/lvm.conf "global {\n\tuse_lvmetad = 1\n}\n"
 
-## Record the package versions used to create the image
-## rpm initializes nss, which requires /dev/urandom to be present, hence the mknod
-runcmd chroot ${root} /usr/bin/mknod -m 666 /dev/random c 1 8
-runcmd chroot ${root} /usr/bin/mknod -m 666 /dev/urandom c 1 9
-runcmd chroot ${root} /usr/bin/rpm -qa --pipe "sort | tee /root/lorax-packages.log"
-
 ## TODO: we could run prelink here if we wanted?
+
+## fix fonconfig cache containing timestamps
+runcmd chroot ${root} /usr/bin/find /usr/share/fonts -newermt "@${SOURCE_DATE_EPOCH}" -exec \
+    touch --no-dereference --date="@${SOURCE_DATE_EPOCH}" {} +
+runcmd chroot ${root} /usr/bin/fc-cache -f
