@@ -1,44 +1,40 @@
-<%page args="kernels, runtime_img, basearch, outroot, product, isolabel"/>
+<%page args="kernels, runtime_img, runtime_base, basearch, inroot, outroot, product, isolabel"/>
 <%
 configdir="tmp/config_files/x86"
-SYSLINUXDIR="usr/share/syslinux"
 PXEBOOTDIR="images/pxeboot"
-BOOTDIR="isolinux"
+STAGE2IMG="images/install.img"
+GRUB2DIR="boot/grub2"
 KERNELDIR=PXEBOOTDIR
-LIVEDIR="LiveOS"
-EXTRAKERNELS="extrakernels"
-from distutils.version import LooseVersion
+LORAXDIR="usr/share/lorax/"
 
 ## Don't allow spaces or escape characters in the iso label
 def valid_label(ch):
     return ch.isalnum() or ch == '_'
 
 isolabel = ''.join(ch if valid_label(ch) else '-' for ch in isolabel)
+
+import os
+from os.path import basename
+from pylorax.sysutils import joinpaths
+
+# Test the runtime_img, if it is > 4GiB we need to set -iso-level to 3
+if os.stat(joinpaths(inroot, runtime_img)).st_size >= 4*1024**3:
+    isoargs = "-iso-level 3"
+else:
+    isoargs = ""
 %>
 
-mkdir ${LIVEDIR}
-install ${runtime_img} ${LIVEDIR}/squashfs.img
-treeinfo stage2 mainimage ${LIVEDIR}/squashfs.img
-
-## install bootloader and config files
-mkdir ${BOOTDIR}
-install ${SYSLINUXDIR}/isolinux.bin ${BOOTDIR}
-install ${SYSLINUXDIR}/vesamenu.c32 ${BOOTDIR}
-install ${SYSLINUXDIR}/mboot.c32 ${BOOTDIR}
-install ${SYSLINUXDIR}/ldlinux.c32 ${BOOTDIR}
-install ${SYSLINUXDIR}/libcom32.c32 ${BOOTDIR}
-install ${SYSLINUXDIR}/libutil.c32 ${BOOTDIR}
-install ${configdir}/isolinux.cfg ${BOOTDIR}
-install ${configdir}/boot.msg ${BOOTDIR}
-install ${configdir}/grub.conf ${BOOTDIR}
-install usr/share/anaconda/boot/syslinux-splash.png ${BOOTDIR}/splash.png
-install boot/memtest* ${BOOTDIR}/memtest
+mkdir images
+install ${runtime_img} ${STAGE2IMG}
+treeinfo stage2 mainimage images/${runtime_base}
 
 ## install kernels
 mkdir ${KERNELDIR}
+## BEGIN QUBES SPECIFIC PART
 install boot/xen*gz ${KERNELDIR}/xen.gz
 <%
-sortedkernels = sorted(kernels, key=lambda k: LooseVersion(k['version']))
+from packaging.version import Version
+sortedkernels = sorted(kernels, key=lambda k: Version(k['version'].split(".fc")[0]))
 assert(len(sortedkernels) <= 2)
 # choose oldest - the LTS one
 defaultkernel = sortedkernels[0]
@@ -49,7 +45,7 @@ shortkvers = []
 %for kernel in sortedkernels:
     # Use short kernel version because of ISO9660 filename length limitation
     <%
-    shortkver = kernel.version.replace('.pvops.qubes','').replace('.x86_64','')
+    shortkver = kernel["version"].replace('.pvops.qubes','').replace('.x86_64','')
     shortkvers.append(shortkver)
     %>
     %if kernel == defaultkernel:
@@ -58,50 +54,77 @@ shortkvers = []
     %else:
         installkernel images-xen ${kernel.path} ${KERNELDIR}/vmlinuz-${shortkver}
         installinitrd images-xen ${kernel.initrd.path} ${KERNELDIR}/initrd-${shortkver}.img
-        hardlink ${KERNELDIR}/vmlinuz-${shortkver} ${BOOTDIR}
-        hardlink ${KERNELDIR}/initrd-${shortkver}.img ${BOOTDIR}
         hardlink ${KERNELDIR}/vmlinuz-${shortkver} ${KERNELDIR}/vmlinuz-latest
         hardlink ${KERNELDIR}/initrd-${shortkver}.img ${KERNELDIR}/initrd-latest.img
-        replace '@EXTRAKERNELS@' 'label kernel-${kernel.version}\n\
-  menu indent count 5\n\
-  menu label ^Install @PRODUCT@ using ${kernel.version} kernel\n\
-  kernel mboot.c32\n\
-  append xen.gz --- vmlinuz-${shortkver} @ROOT@ quiet --- initrd-${shortkver}.img\n\
-@EXTRAKERNELS@' ${BOOTDIR}/isolinux.cfg
     %endif
-
+## END QUBES SPECIFIC PART
 %endfor
 
-## configure bootloader
-replace @VERSION@ ${product.version} ${BOOTDIR}/grub.conf ${BOOTDIR}/isolinux.cfg ${BOOTDIR}/*.msg
-replace @PRODUCT@ '${product.name}'  ${BOOTDIR}/grub.conf ${BOOTDIR}/isolinux.cfg ${BOOTDIR}/*.msg
-replace @ROOT@ 'inst.stage2=hd:LABEL=${isolabel|udev}' ${BOOTDIR}/isolinux.cfg
-replace @EXTRAKERNELS@ '' ${BOOTDIR}/isolinux.cfg
-
-hardlink ${KERNELDIR}/xen.gz ${BOOTDIR}
-hardlink ${KERNELDIR}/vmlinuz ${BOOTDIR}
-hardlink ${KERNELDIR}/initrd.img ${BOOTDIR}
 %if basearch == 'x86_64':
     treeinfo images-xen kernel ${KERNELDIR}/vmlinuz
     treeinfo images-xen initrd ${KERNELDIR}/initrd.img
 %endif
 
+## configure grub2 config file
+mkdir ${GRUB2DIR}
+install ${configdir}/grub2-bios.cfg ${GRUB2DIR}/grub.cfg
+## BEGIN QUBES SPECIFIC PART
+%for shortkver in shortkvers[1:]:
+    install ${configdir}/grub2-bios-entry.cfg grub2-bios-entry.cfg-entry
+    replace @KVER@ ${shortkver} grub2-bios-entry.cfg-entry
+    replace @KERNELPATH@ /${KERNELDIR}/vmlinuz-${shortkver} grub2-bios-entry.cfg-entry
+    replace @INITRDPATH@ /${KERNELDIR}/initrd-${shortkver}.img grub2-bios-entry.cfg-entry
+    runcmd sh -c 'cat ${outroot}/grub2-bios-entry.cfg-entry >> ${outroot}/${GRUB2DIR}/grub.cfg'
+    remove grub2-bios-entry.cfg-entry
+%endfor
+replace @PRODUCT@ '${product.name}' ${GRUB2DIR}/grub.cfg
+replace @VERSION@ ${product.version} ${GRUB2DIR}/grub.cfg
+replace @KERNELNAME@ vmlinuz ${GRUB2DIR}/grub.cfg
+replace @XENPATH@ /${KERNELDIR}/xen.gz ${GRUB2DIR}/grub.cfg
+replace @KERNELPATH@ /${KERNELDIR}/vmlinuz ${GRUB2DIR}/grub.cfg
+replace @INITRDPATH@ /${KERNELDIR}/initrd.img ${GRUB2DIR}/grub.cfg
+replace @ISOLABEL@ '${isolabel}' ${GRUB2DIR}/grub.cfg
+replace @ROOT@ 'inst.stage2=hd:LABEL=${isolabel|udev}' ${GRUB2DIR}/grub.cfg
+## END QUBES SPECIFIC PART
+
 ## WHeeeeeeee, EFI.
-## We could remove the basearch restriction someday..
-<% efiargs=""; efigraft=""; efihybrid="" %>
-%if exists("boot/efi/EFI/*/gcdx64.efi") and basearch != 'i386':
-    <%
-    efiarch = 'X64' if basearch=='x86_64' else 'IA32'
-    efigraft="EFI/BOOT={0}/EFI/BOOT".format(outroot)
-    images = ["images/efiboot.img"]
-    for img in images:
-        efiargs += " -eltorito-alt-boot -e {0} -no-emul-boot".format(img)
-        efigraft += " {0}={1}/{0}".format(img,outroot)
-    efihybrid = "--uefi"
-    %>
-    <%include file="efi.tmpl" args="configdir=configdir, KERNELDIR=KERNELDIR, efiarch=efiarch, isolabel=isolabel, kver=defaultkernel.version, shortkvers=shortkvers"/>
+<% efiarch32=None; efiarch64=None %>
+%if exists("boot/efi/EFI/*/gcdia32.efi"):
+    <% efiarch32 = 'IA32' %>
+%endif
+%if exists("boot/efi/EFI/*/gcdx64.efi"):
+    <% efiarch64 = 'X64' %>
+%endif
+%if (efiarch32 or efiarch64):
+    <%include file="efi.tmpl" args="configdir=configdir, KERNELDIR=KERNELDIR, efiarch32=efiarch32, efiarch64=efiarch64, isolabel=isolabel, kver=defaultkernel.version, shortkvers=shortkvers"/>
 %endif
 
+# Create optional product.img and updates.img
+<% filegraft=""; images=["product", "updates"]; compressargs=""; %>
+%for img in images:
+    %if exists("%s/%s/" % (LORAXDIR, img)):
+        installimg ${compressargs} ${LORAXDIR}/${img}/ images/${img}.img
+        treeinfo images-${basearch} ${img}.img images/${img}.img
+        <% filegraft += " images/{0}.img={1}/images/{0}.img".format(img, outroot) %>
+    %endif
+%endfor
+
+# Inherit iso-graft/ if it exists from external templates
+<%
+    import os
+    if os.path.exists(workdir + "/iso-graft"):
+        filegraft += " " + workdir + "/iso-graft"
+%>
+
+## BEGIN QUBES SPECIFIC PART: don't add licence files
+## Add the license files
+##%for f in glob("usr/share/licenses/*-release-common/*"):
+##    install ${f} ${f|basename}
+##    <% filegraft += " {0}={1}/{0}".format(basename(f), outroot) %>
+##%endfor
+## END QUBES SPECIFIC PART
+
+## BEGIN QUBES SPECIFIC PART
 # Support for productmd format
 # https://release-engineering.github.io/productmd/treeinfo-1.0.html
 # https://pagure.io/pungi/c/682f959ee01afef47a6f097e99e31ce204dc04ce
@@ -148,3 +171,35 @@ treeinfo "variant-${product.name}" packages Packages
 treeinfo "variant-${product.name}" repository .
 treeinfo "variant-${product.name}" type variant
 treeinfo "variant-${product.name}" uid ${product.name}
+## END BEGIN QUBES SPECIFIC PART
+
+## Make images/eltoritio.img
+runcmd grub2-mkimage -O i386-pc-eltorito -d ${inroot}/usr/lib/grub/i386-pc \
+       -o ${outroot}/images/eltorito.img \
+       -p /${GRUB2DIR} \
+       iso9660 biosdisk
+treeinfo images-${basearch} eltorito.img images/eltorito.img
+
+## make boot.iso
+##runcmd xorrisofs ${isoargs} -o ${outroot}/images/boot.iso \
+##       -R -J -V '${isolabel}' \
+##       --grub2-mbr ${inroot}/usr/lib/grub/i386-pc/boot_hybrid.img \
+##       -partition_offset 16 \
+##       -appended_part_as_gpt \
+##       -append_partition 2 C12A7328-F81F-11D2-BA4B-00A0C93EC93B ${outroot}/images/efiboot.img \
+##       -iso_mbr_part_type EBD0A0A2-B9E5-4433-87C0-68B6B72699C7 \
+##       -c boot.cat --boot-catalog-hide \
+##       -b images/eltorito.img \
+##       -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
+##       -eltorito-alt-boot \
+##       -e '--interval:appended_partition_2:all::' -no-emul-boot \
+##       -graft-points \
+##       .discinfo=${outroot}/.discinfo \
+##       ${STAGE2IMG}=${outroot}/${STAGE2IMG} \
+##       ${KERNELDIR}=${outroot}/${KERNELDIR} \
+##       ${filegraft} \
+##       ${GRUB2DIR}=${outroot}/${GRUB2DIR} \
+##       ${GRUB2DIR}/i386-pc=${inroot}/usr/lib/grub/i386-pc \
+##       images/eltorito.img=${outroot}/images/eltorito.img \
+##       EFI/BOOT=${outroot}/EFI/BOOT
+##treeinfo images-${basearch} boot.iso images/boot.iso

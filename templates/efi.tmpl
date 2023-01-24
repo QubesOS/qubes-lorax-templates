@@ -1,4 +1,4 @@
-<%page args="configdir, KERNELDIR, efiarch, isolabel, kver, shortkvers"/>
+<%page args="configdir, KERNELDIR, efiarch32, efiarch64, isolabel, kver, shortkvers"/>
 <%
 EFIBOOTDIR="EFI/BOOT"
 APPLE_EFI_ICON=inroot+"/usr/share/pixmaps/bootloader/fedora.icns"
@@ -7,7 +7,10 @@ APPLE_EFI_DISKNAME=inroot+"/usr/share/pixmaps/bootloader/fedora-media.vol"
 
 mkdir ${EFIBOOTDIR}
 mkdir ${EFIBOOTDIR}/fonts/
+
+
 ## BEGIN QUBES SPECIFIC PART
+%if efiarch64:
 ## Install grub only (no shim), as we don't have SecureBoot-signed xen/kernel
 ## Create custom grub image, to include multiboot2 module
 <%
@@ -29,9 +32,10 @@ grub_modules += " multiboot2"
 
 runcmd chroot ${inroot} mkdir -p /boot/efi/EFI/qubes
 runcmd chroot ${inroot} grub2-mkimage -O x86_64-efi \
-    -o /boot/efi/EFI/qubes/BOOT${efiarch}.EFI \
+    -o /boot/efi/EFI/qubes/BOOT${efiarch64}.EFI \
     -p /EFI/BOOT ${grub_modules}
-install boot/efi/EFI/qubes/BOOT${efiarch}.EFI ${EFIBOOTDIR}/BOOT${efiarch}.EFI
+install boot/efi/EFI/qubes/BOOT${efiarch64}.EFI ${EFIBOOTDIR}/BOOT${efiarch64}.EFI
+%endif
 ## END QUBES SPECIFIC PART
 install usr/share/grub/unicode.pf2 ${EFIBOOTDIR}/fonts/
 

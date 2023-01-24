@@ -82,12 +82,12 @@ install ${configdir}/NetworkManager.state var/lib/NetworkManager/NetworkManager.
 ##install ${configdir}/pam.sshd etc/pam.d/sshd
 ##install ${configdir}/pam.sshd etc/pam.d/login
 ##install ${configdir}/pam.sshd etc/pam.d/remote
-## END QUBES SPECIFIC PART
 
 ## set up inst.rngd support
-install ${configdir}/inst.rngd.service etc/systemd/system/inst.rngd.service
-mkdir etc/systemd/system/basic.target.wants/
-symlink /etc/systemd/system/inst.rngd.service etc/systemd/system/basic.target.wants/inst.rngd.service
+##install ${configdir}/inst.rngd.service etc/systemd/system/inst.rngd.service
+##mkdir etc/systemd/system/basic.target.wants/
+##symlink /etc/systemd/system/inst.rngd.service etc/systemd/system/basic.target.wants/inst.rngd.service
+## END QUBES SPECIFIC PART
 
 ## set up "install" user account
 append etc/passwd "install:x:0:0:root:/root:/usr/libexec/anaconda/run-anaconda"
@@ -130,7 +130,7 @@ runcmd chroot ${root} /usr/bin/rpm -qa --pipe "sort | tee /root/lorax-packages.l
 
 ## TODO: we could run prelink here if we wanted?
 
-## fix fonconfig cache containing timestamps
+## fix fontconfig cache containing timestamps
 runcmd chroot ${root} /usr/bin/find /usr/share/fonts -newermt "@${SOURCE_DATE_EPOCH}" -exec \
     touch --no-dereference --date="@${SOURCE_DATE_EPOCH}" {} +
 runcmd chroot ${root} /usr/bin/fc-cache -f
