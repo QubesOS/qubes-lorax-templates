@@ -64,7 +64,7 @@ shortkvers = []
         hardlink ${KERNELDIR}/initrd-${shortkver}.img ${KERNELDIR}/initrd-latest.img
         replace '@EXTRAKERNELS@' 'label kernel-${kernel.version}\n\
   menu indent count 5\n\
-  menu label ^Install @PRODUCT@ using ${kernel.version} kernel\n\
+  menu label ^Install @PRODUCT@ using kernel-latest (${kernel.version})\n\
   kernel mboot.c32\n\
   append xen.gz --- vmlinuz-${shortkver} @ROOT@ quiet --- initrd-${shortkver}.img\n\
 @EXTRAKERNELS@' ${BOOTDIR}/isolinux.cfg
