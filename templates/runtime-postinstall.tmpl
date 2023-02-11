@@ -73,15 +73,15 @@ install ${configdir}/91-anaconda-autoconnect-slaves.conf etc/NetworkManager/conf
 install ${configdir}/vconsole.conf etc
 install ${configdir}/92-anaconda-loglevel-debug.conf etc/NetworkManager/conf.d
 
+## set up sshd
+install ${configdir}/sshd_config.anaconda etc/ssh
+install ${configdir}/pam.sshd etc/pam.d/sshd
+install ${configdir}/pam.sshd etc/pam.d/login
+install ${configdir}/pam.sshd etc/pam.d/remote
+
 ## BEGIN QUBES SPECIFIC PART
 ## disable NetworkManager
 install ${configdir}/NetworkManager.state var/lib/NetworkManager/NetworkManager.state
-
-## set up sshd
-##install ${configdir}/sshd_config.anaconda etc/ssh
-##install ${configdir}/pam.sshd etc/pam.d/sshd
-##install ${configdir}/pam.sshd etc/pam.d/login
-##install ${configdir}/pam.sshd etc/pam.d/remote
 
 ## set up inst.rngd support
 ##install ${configdir}/inst.rngd.service etc/systemd/system/inst.rngd.service

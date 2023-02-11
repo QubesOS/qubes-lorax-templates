@@ -9,6 +9,6 @@ XAuthLocation /bin/xauth
 KeepAlive yes
 SyslogFacility AUTHPRIV
 RSAAuthentication yes
-PasswordAuthentication yes
-PermitEmptyPasswords yes
+PasswordAuthentication no
+PermitEmptyPasswords no
 PermitUserEnvironment yes
