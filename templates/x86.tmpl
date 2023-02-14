@@ -84,7 +84,7 @@ replace @XENPATH@ /${KERNELDIR}/xen.gz ${GRUB2DIR}/grub.cfg
 replace @KERNELPATH@ /${KERNELDIR}/vmlinuz ${GRUB2DIR}/grub.cfg
 replace @INITRDPATH@ /${KERNELDIR}/initrd.img ${GRUB2DIR}/grub.cfg
 replace @ISOLABEL@ '${isolabel}' ${GRUB2DIR}/grub.cfg
-replace @ROOT@ 'inst.stage2=hd:LABEL=${isolabel|udev}' ${GRUB2DIR}/grub.cfg
+replace @ROOT@ 'inst.repo=hd:LABEL=${isolabel|udev}' ${GRUB2DIR}/grub.cfg
 ## END QUBES SPECIFIC PART
 
 ## WHeeeeeeee, EFI.
