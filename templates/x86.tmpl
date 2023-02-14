@@ -34,7 +34,7 @@ mkdir ${KERNELDIR}
 install boot/xen*gz ${KERNELDIR}/xen.gz
 <%
 from packaging.version import Version
-sortedkernels = sorted(kernels, key=lambda k: Version(k['version'].split(".fc")[0]))
+sortedkernels = sorted(kernels, key=lambda k: Version(k['version'].split(".fc")[0].split(".qubes")[0]))
 assert(len(sortedkernels) <= 2)
 # choose oldest - the LTS one
 defaultkernel = sortedkernels[0]
