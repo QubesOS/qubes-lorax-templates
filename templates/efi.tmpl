@@ -98,9 +98,9 @@ ${make_efiboot("images/efiboot.img", include_kernel=False)}
     replace @INITRDPATH@ /${kdir}/initrd.img ${eficonf}
     replace @ISOLABEL@ '${isolabel}' ${eficonf}
     %if disk:
-        replace @ROOT@ inst.stage2=hd:LABEL=ANACONDA ${eficonf}
+        replace @ROOT@ inst.repo=hd:LABEL=ANACONDA ${eficonf}
     %else:
-        replace @ROOT@ 'inst.stage2=hd:LABEL=${isolabel|udev}' ${eficonf}
+        replace @ROOT@ 'inst.repo=hd:LABEL=${isolabel|udev}' ${eficonf}
     %endif
     %if efiarch32 == 'IA32':
         copy ${eficonf} ${EFIBOOTDIR}/BOOT.conf
