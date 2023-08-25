@@ -134,3 +134,8 @@ runcmd chroot ${root} /usr/bin/rpm -qa --pipe "sort | tee /root/lorax-packages.l
 runcmd chroot ${root} /usr/bin/find /usr/share/fonts -newermt "@${SOURCE_DATE_EPOCH}" -exec \
     touch --no-dereference --date="@${SOURCE_DATE_EPOCH}" {} +
 runcmd chroot ${root} /usr/bin/fc-cache -f
+
+## workaround https://github.com/util-linux/util-linux/issues/2434
+## let udev know manually when new device is attached
+## remove when util-linux >= 2.39.2 lands in
+runcmd sed -i 's/losetup -f.*/& \&\& udevadm trigger/' ${root}/usr/lib/dracut/modules.d/90dmsquash-live/iso-scan.sh
