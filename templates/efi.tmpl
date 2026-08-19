@@ -38,6 +38,7 @@ install boot/efi/EFI/qubes/BOOT${efiarch64}.EFI ${EFIBOOTDIR}/BOOT${efiarch64}.E
 %endif
 ## END QUBES SPECIFIC PART
 install usr/share/grub/unicode.pf2 ${EFIBOOTDIR}/fonts/
+install ${configdir}/kickstart.cfg ${EFIBOOTDIR}/ks.cfg
 
 ## actually make the EFI images
 ${make_efiboot("images/efiboot.img", include_kernel=False)}
