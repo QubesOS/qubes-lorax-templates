@@ -57,6 +57,10 @@ symlink anaconda-shell@.service lib/systemd/system/autovt@.service
 mkdir usr/lib/systemd/logind.conf.d
 append usr/lib/systemd/logind.conf.d/anaconda-shell.conf "[Login]\nReserveVT=2"
 
+## Ignore the laptop lid switch during installation, so closing the lid does
+## not suspend the machine before the install finishes.
+append usr/lib/systemd/logind.conf.d/qubes-inst-no-suspend.conf "[Login]\nHandleLidSwitch=ignore\nHandleLidSwitchExternalPower=ignore\nHandleLidSwitchDocked=ignore"
+
 ## Don't write the journal to the overlay, just keep it in RAM
 remove var/log/journal
 
